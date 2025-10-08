@@ -346,13 +346,13 @@ Given a raw ascii datafile and expected angular coordinates of the point with ma
 
 Output is a tuple in the form `p, omega_offset::Float64, twotheta_offset::Float64` where p is a PlotlyJS plot. If apply_offsets is true, then the plot will show the data after each offset is subtracted. Colormap of the plot can be set using cmap.
 
-See also [`compare_plot_to_expected_angles`](@ref) and [`plot_corrected_RSM_ascii`](@ref).
+See also [`compare_plot_to_expected_angles`](@ref) and [`plot_gonio_map`](@ref).
 """
 function compare_raw_to_expected(ascifile, calc_2theta::Number, calc_omega::Number; cmap=cmap, apply_offsets::Bool = false)
-    p, maxcounts = plot_corrected_RSM_ascii(ascifile, cmap=cmap)
+    p, maxcounts = plot_gonio_map(ascifile, cmap=cmap)
     if apply_offsets == true
         omega_offset, twotheta_offset = compare_plot_to_expected_angles(p, maxcounts, calc_2theta, calc_omega, show_plot = false, return_offsets = true)
-        p = plot_corrected_RSM_ascii(ascifile, cmap=cmap, offset_omega = omega_offset, offset_2theta = twotheta_offset)
+        p = plot_gonio_map(ascifile, cmap=cmap, offset_omega = omega_offset, offset_2theta = twotheta_offset)
         add_hline!(p[1],calc_2theta)
         add_vline!(p[1],calc_omega)
         return p[1], omega_offset, twotheta_offset
