@@ -22,10 +22,9 @@
 
 """
 
-using DelimitedFiles
+
 using DataFrames
 using CSV
-using LaTeXStrings
 using PlotlyJS
 
 """

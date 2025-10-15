@@ -22,15 +22,15 @@
 
 """
 
-using DelimitedFiles
+
 using DataFrames
 using CSV
-#using Plots; pythonplot()
-#using StatsPlots
-using LaTeXStrings
-#using pythonplot()
-#using PlotlyKaleido
 using PlotlyJS
+
+#using DelimitedFiles #This isn't actually used I think
+#using LaTeXStrings #This is not used when running in vscode, maybe helpful if in a jupyter worksheet?
+#using PlotlyKaleido #may be necessary for Jupyter?
+
 
 #print(pwd())
 # if isdir(Pkg.dir("PlotlyJS"))
@@ -358,7 +358,7 @@ offset_omega = 0.0
 #file = raw"C:\Users\micha\OneDrive - UNSW\Kayla_Lord_PhD_Shared_Folder new\_XRD data\L5BO 20%Mn thin films\P0298cML - Moein\P0298cML_ RSM 113 1hr_2-Theta_Omega.asc"
 
 file = raw"C:\Users\micha\OneDrive - UNSW\Kayla_Lord_PhD_Shared_Folder new\_XRD data\L5BO 40%Mn thin films\P0330aKL L5BO 40p 6k - STO 001\RSM\P0325aRF RSM 004 phi 90 slow.asc"
-p = plot_corrected_RSM_ascii(file; cropby = "dontcrop", xdir = "0 1 0", sub=nothing, xrange = xrange, yrange = yrange, zmin=1, zmax=4, offset_omega = offset_omega)
+p = plot_corrected_RSM_ascii(file; cropby = "dontcrop", xdir = "0 -1 0", sub=nothing, xrange = xrange, yrange = yrange, zmin=1, zmax=4, offset_omega = offset_omega)
 
 # zmin=0.1, zmax=4 - general default
 
