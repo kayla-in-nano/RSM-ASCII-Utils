@@ -1,3 +1,27 @@
+"""
+    ASCII-RSM-Functions.jl: defines various functions useful for extracting and plotting XRD RSM data from RINT ASCII raw datafiles.
+    Copyright (C) 2025 Mikayla Lord (https://orcid.org/0000-0002-1388-3872)
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+    If you distribute this code or use it to process data, I would appreciate it if you attributed or cited me as the author.
+
+    Contact me via email: kaylaTAL@protonmail.com
+    Github: https://github.com/kayla-in-nano/RSM-ASCII-Utils
+
+"""
+
 using DelimitedFiles
 using DataFrames
 using CSV
@@ -8,7 +32,7 @@ using LaTeXStrings
 #using PlotlyKaleido
 using PlotlyJS
 
-print(pwd())
+#print(pwd())
 # if isdir(Pkg.dir("PlotlyJS"))
 #     @eval using PlotlyJS
 # else
@@ -56,6 +80,25 @@ function gen_Qaxis_title(hkl::String; sub = nothing)
     return axis_title
 end
 
+"""
+    find_offsets(asciifile::String)
+
+Returns a Float64 vector of the offset associated with each scan in the asciifile.
+"""
+function find_offsets(asciifile::String)
+    f = open(asciifile) #reopen new instance of the file
+    stringarray = collect(eachline(f)) #Create an array of strings, where each line of the file is a new element in the array
+    close(f) #close the file
+    offsetregex = r"(?:\*OFFSET\t\t=  )([^\r\n]+)" #regex to find offsets associated with each scan
+    offsetarray = Vector{Float64}() #empty array to store offsets
+    for s in stringarray
+        m = match(offsetregex, s)
+        if typeof(m) == RegexMatch #ignore any lines where there is no offset
+            push!(offsetarray, parse.(Float64, m.captures[1])) #add the offset to the array as a float
+        end
+    end
+    return offsetarray
+end
 
 
 
@@ -64,6 +107,13 @@ cmap = [[0.0, "rgb(255, 255, 255)"], [0.003937007874015748, "rgb(191, 183, 198)"
 width = 500
 l_0, l_1 = 10, 10
 
+
+
+"""
+    plot_corrected_RSM_ascii(ascifile="string"; cropby="dontcrop", cmap=cmap, xdir="0 1 0", ydir="0 0 1", sub=nothing, xrange = nothing, yrange = nothing, offset_omega::Float64 = 0.0, offset_2theta::Float64 = 0.0, zmin = 0.5, zmax=4)
+
+Converts a raw RSM ascii datafile to q-space and returns a PlotlyJS plot with axes displayed as input crystallographic directions.
+"""
 function plot_corrected_RSM_ascii(ascifile="string"; cropby="dontcrop", cmap=cmap, xdir="0 1 0", ydir="0 0 1", sub=nothing, xrange = nothing, yrange = nothing, offset_omega::Float64 = 0.0, offset_2theta::Float64 = 0.0, zmin = 0.5, zmax=4)
     regexSTART = r"(?:\*START\t\t=  )([^\r][^\n]+)(?:\n\*STOP\t\t=  )([^\n]+)(?:\n\*STEP\t\t=  )([^\n]+)(?:\n\*OFFSET\t\t=  )([^\n]+)"
     f = open(ascifile)
@@ -133,24 +183,7 @@ function plot_corrected_RSM_ascii(ascifile="string"; cropby="dontcrop", cmap=cma
 
     rename!(scan_df, Dict(:scan => "TwoTheta")) #Change first column to :TwoTheta
 
-    f = open(ascifile) #reopen new instance of the file
-    stringarray = collect(eachline(f)) #Create an array of strings, where each line of the file is a new element in the array
-    close(f) #close the file
-
-    #print(ndims(stringarray))
-    #print(". Length of the string array is ")
-    #print(length(stringarray))
-
-    #stringarray[1]
-
-    offsetregex = r"(?:\*OFFSET\t\t=  )([^\r][^\n]+)" #regex to find just offsets
-    offsetarray = Vector{Float64}() #empty array to store offsets
-    for s in stringarray
-        m = match(offsetregex, s)
-        if typeof(m) == RegexMatch #ignore any lines where there is no offset
-            push!(offsetarray, parse.(Float64, m.captures[1])) #add the offset to the array as a float
-        end
-    end
+    offsetarray = find_offsets(ascifile)
     omega_df = DataFrame() # create empty dataframe for omega values
 
     #scans_omega = names(scan_df, Not(:TwoTheta)) #get a string of scan names
@@ -299,8 +332,8 @@ function plot_corrected_RSM_ascii(ascifile="string"; cropby="dontcrop", cmap=cma
 end
 
 use_ranges = true
-start_x = 0.492 #STO 113 0.3475 LAO 0.34 LAO 103: 0.233 STO 114: 0.342 204: 0.492
-start_y = 1.005 #STO 113 -> 0.7575. LAO 113 -> 0.75 (40%) or 0.755 (20%) #prev 0.762 to 20% LAO LAO 103-> 0.744 STO 114 and 204: 1.005
+start_x = -0.02 #STO 113 0.3475 LAO 0.34 LAO 103: 0.233. LAO 002: -0.025 STO 114: 0.342 204: 0.492 004:
+start_y = 1.005 #STO 113 -> 0.7575. LAO 113 -> 0.75 (40%) or 0.755 (20%) #prev 0.762 to 20% LAO LAO 103-> 0.744 002 -> 0.4875 STO 114 and 204: 1.005
 range = 0.04 #0.04 STO, 0.05 LAO 113. LAO 103: 0.06
 if use_ranges == true
     xrange = Dict( #0.05 aim
@@ -324,82 +357,15 @@ offset_omega = 0.0
 
 #file = raw"C:\Users\micha\OneDrive - UNSW\Kayla_Lord_PhD_Shared_Folder new\_XRD data\L5BO 20%Mn thin films\P0298cML - Moein\P0298cML_ RSM 113 1hr_2-Theta_Omega.asc"
 
-file = raw"C:\Users\micha\OneDrive - UNSW\Kayla_Lord_PhD_Shared_Folder new\_XRD data\L5BO 40%Mn thin films\P0330aKL L5BO 40p 6k - STO 001\RSM\P0330aKL RSM 204 phi0 slow.asc"
-p = plot_corrected_RSM_ascii(file; cropby = "dontcrop", xdir = "1 0 0", sub=nothing, xrange = xrange, yrange = yrange, zmin=1, zmax=4, offset_omega = offset_omega)
+file = raw"C:\Users\micha\OneDrive - UNSW\Kayla_Lord_PhD_Shared_Folder new\_XRD data\L5BO 40%Mn thin films\P0330aKL L5BO 40p 6k - STO 001\RSM\P0325aRF RSM 004 phi 90 slow.asc"
+p = plot_corrected_RSM_ascii(file; cropby = "dontcrop", xdir = "0 1 0", sub=nothing, xrange = xrange, yrange = yrange, zmin=1, zmax=4, offset_omega = offset_omega)
 
 # zmin=0.1, zmax=4 - general default
 
 # savepath = splitext(file)[1] * ".png"
 # savefig(p, savepath)
 
-# minx = minimum(long_df.qx)
-# maxx = maximum(long_df.qx)
-# minz = minimum(long_df.qz)
-# maxz = maximum(long_df.qz)
 
-# p = plot(scattergl(
-
-#     long_df, x=:qx, y=:qz,
-#         #customdata=Matrix(qcrop[!, 1:3])',
-#         marker=attr(color=:LogCounts, colorscale=cmap, showscale=true, symbol="diamond", size=1.8, cmin = 0.6, cmax = 4,
-#             colorbar=attr(
-#                 title_text="Counts<br><sup>&nbsp;</sup>",
-#                 ticks="outside",
-#                 tickmode= "array",
-#                 #tickvals= log10.(collect(1:10)), #log positions where a label will appear
-#                 tickvals = log10.([[0.6, 0.7, 0.8, 0.9]; collect(1:10); collect(StepRange(20, Int8(10), 100)); collect(StepRange(200, Int8(100), 1000)); collect(StepRange(2000, Int16(1000), 10000))]),
-#                 #ticktext=["1", "", "", "", "", "", "", "", "", "10"], #unlogged label
-#                 ticktext=[["","","","","1", "", "", "", "", "", "", "", "", "10<sup>1</sup>"];["", "", "", "", "", "", "", "", "10<sup>2</sup>"];["", "", "", "", "", "", "", "", "10<sup>3</sup>"];["", "", "", "", "", "", "", "", "10<sup>4</sup>"]],
-#                 ticklen=5,
-#                 )),
-
-#     mode="markers",
-#         #hovertemplate=hovertemplate,
-
-# ),config=PlotConfig(scrollZoom=false, toImageButtonOptions=attr(
-#         format="png", # one of png, svg, jpeg, webp
-#         filename="custom_image",
-#         #height=900,
-#     # width=1400,
-#         scale=2 # Multiply title/legend/axis/canvas sizes by this factor
-#     ).fields))
-
-# relayout!(
-#     p, 
-#     autosize=0,
-#     width=width+11,#900
-#     height=floor(Int,width * l_0 / l_1), #800
-#     xaxis_range=[minx, maxx],
-#     yaxis_range=[minz, maxz],
-#     plot_bgcolor="White",
-#     #yaxis=attr(title_text="<i><b>Q</b><sub>z</sub></i> (Å<sup>-1</sup>)", tickformat=".2f", showline=true, linewidth=1, linecolor="black", mirror=true),
-#     yaxis=attr(title_text="<i><b>Q</b></i>&#8201;//&#8201;[001]<sub>pc</sub> (Å<sup>-1</sup>)", tickformat=".2f", showline=true, linewidth=1, linecolor="black", mirror=true), # &#8201; thin space
-#     #xaxis=attr(title_text="<i><b>Q</b><sub>x</sub></i> (Å<sup>-1</sup>)", tickformat=".2f", showline=true, linewidth=1, linecolor="black", mirror=true),
-#     xaxis=attr(title_text="<i><b>Q</b></i>&#8201;//&#8201;[110]<sub>pc</sub> (Å<sup>-1</sup>)", tickformat=".2f", showline=true, linewidth=1, linecolor="black", mirror=true),
-#     #xaxis=attr(title_text="<i><b>Q</b></i>&#8201;//&#8201;[<span style='text-decoration:overline'>1</span>10] (Å<sup>-1</sup>)", tickformat=".2f", showline=true, linewidth=1, linecolor="black", mirror=true),
-#     font=attr(
-#         family="Arial",
-#         size=21,
-#         color="Black"
-#     ),
-#     coloraxis_colorbar=attr(title_text="test"),
-#     margin=attr(
-#         l=50,
-#         r=50,
-#         b=100,
-#         t=100,
-#         pad=2
-#     ),
-    
-# )
-
-# function browser(p::Plot)
-#     tmp_filename = "plot.html"
-#     savefig(p, tmp_filename)
-#     run(`firefox $tmp_filename`)
-# end
-
-# browser(p)
 
 p
 
