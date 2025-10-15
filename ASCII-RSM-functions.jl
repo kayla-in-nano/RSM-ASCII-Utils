@@ -20,7 +20,6 @@
     Contact me via email: kaylaTAL@protonmail.com
     Github: https://github.com/kayla-in-nano/RSM-ASCII-Utils
 
-    If you distribute this code or 
 """
 
 using DelimitedFiles
@@ -53,6 +52,25 @@ function gonio_filter(x, twotheta, min_x::Number, max_x::Number, min_twotheta::N
     interesting_x && interesting_2theta
 end
 
+"""
+    find_offsets(asciifile::String)
+
+Returns a Float64 vector of the offset associated with each scan in the asciifile.
+"""
+function find_offsets(asciifile::String)
+    f = open(asciifile) #reopen new instance of the file
+    stringarray = collect(eachline(f)) #Create an array of strings, where each line of the file is a new element in the array
+    close(f) #close the file
+    offsetregex = r"(?:\*OFFSET\t\t=  )([^\r\n]+)" #regex to find offsets associated with each scan
+    offsetarray = Vector{Float64}() #empty array to store offsets
+    for s in stringarray
+        m = match(offsetregex, s)
+        if typeof(m) == RegexMatch #ignore any lines where there is no offset
+            push!(offsetarray, parse.(Float64, m.captures[1])) #add the offset to the array as a float
+        end
+    end
+    return offsetarray
+end
 
 """
     gen_dir_string(hkl::String; sub = nothing)
@@ -121,7 +139,7 @@ cmap = [[0.0, "rgb(255, 255, 255)"], [0.003937007874015748, "rgb(191, 183, 198)"
 
 
 """
-    plot_gonio_map(ascifile="string"; cmap=cmap, xrange = nothing, yrange = nothing, offset_omega::Float64 = 0.0, offset_2theta::Float64 = 0.0)
+    plot_gonio_map(asciifile="string"; cmap=cmap, xrange = nothing, yrange = nothing, offset_omega::Float64 = 0.0, offset_2theta::Float64 = 0.0)
 
 Given a path to an RSM ASCII raw data file, returns a PlotlyJS plot, mapping the RSM in angular coordinates, and a one row dataframe giving details of the datapoint with the most counts.
 
@@ -134,9 +152,9 @@ Currently supports scans of type "2theta" (vs omega) and "2Theta/Omega" (vs omeg
 - `offset_2theta::Number = 0.0`: Offset to be subtracted from 2Theta if correction is needed.
 
 """
-function plot_gonio_map(ascifile="string"; cmap=cmap, xrange = nothing, yrange = nothing, offset_omega::Number = 0.0, offset_2theta::Number = 0.0)
+function plot_gonio_map(asciifile="string"; cmap=cmap, xrange = nothing, yrange = nothing, offset_omega::Number = 0.0, offset_2theta::Number = 0.0)
     regexSTART = r"(?:\*START\t\t=  )([^\r][^\n]+)(?:\n\*STOP\t\t=  )([^\n]+)(?:\n\*STEP\t\t=  )([^\n]+)(?:\n\*OFFSET\t\t=  )([^\n]+)"
-    f = open(ascifile)
+    f = open(asciifile)
 
     filestring = read(f, String) #convert the full file to a string
 
@@ -197,22 +215,7 @@ function plot_gonio_map(ascifile="string"; cmap=cmap, xrange = nothing, yrange =
 
     rename!(scan_df, Dict(:scan => "TwoTheta")) #Change first column to :TwoTheta
 
-    f = open(ascifile) #reopen new instance of the file
-    stringarray = collect(eachline(f)) #Create an array of strings, where each line of the file is a new element in the array
-    close(f) #close the file
-
-    #print(ndims(stringarray))
-    #print(". Length of the string array is ")
-    #print(length(stringarray))
-
-    offsetregex = r"(?:\*OFFSET\t\t=  )([^\r][^\n]+)" #regex to find offsets associated with each scan
-    offsetarray = Vector{Float64}() #empty array to store offsets
-    for s in stringarray
-        m = match(offsetregex, s)
-        if typeof(m) == RegexMatch #ignore any lines where there is no offset
-            push!(offsetarray, parse.(Float64, m.captures[1])) #add the offset to the array as a float
-        end
-    end
+    offsetarray = find_offsets(asciifile)
 
     omega_df = DataFrame() # create empty dataframe for omega values
 
@@ -271,7 +274,7 @@ function plot_gonio_map(ascifile="string"; cmap=cmap, xrange = nothing, yrange =
 
     ),config=PlotConfig(scrollZoom=false, toImageButtonOptions=attr(
             format="png", # one of png, svg, jpeg, webp
-            filename=splitext(basename(ascifile))[1],
+            filename=splitext(basename(asciifile))[1],
             #height=900,
             #width=1400,
             scale=2 # Multiply title/legend/axis/canvas sizes by this factor
@@ -340,7 +343,7 @@ end
 
 
 """
-    compare_raw_to_expected(ascifile, calc_2theta::Number, calc_omega::Number; cmap=cmap, apply_offsets::Bool = false)
+    compare_raw_to_expected(ascifiile, calc_2theta::Number, calc_omega::Number; cmap=cmap, apply_offsets::Bool = false)
 
 Given a raw ascii datafile and expected angular coordinates of the point with maximum counts, returns a plot of that datafile with the expected coordinates marked, and the difference between the expected and actual coordinates.
 
@@ -348,11 +351,11 @@ Output is a tuple in the form `p, omega_offset::Float64, twotheta_offset::Float6
 
 See also [`compare_plot_to_expected_angles`](@ref) and [`plot_gonio_map`](@ref).
 """
-function compare_raw_to_expected(ascifile, calc_2theta::Number, calc_omega::Number; cmap=cmap, apply_offsets::Bool = false)
-    p, maxcounts = plot_gonio_map(ascifile, cmap=cmap)
+function compare_raw_to_expected(asciifile, calc_2theta::Number, calc_omega::Number; cmap=cmap, apply_offsets::Bool = false)
+    p, maxcounts = plot_gonio_map(asciifile, cmap=cmap)
     if apply_offsets == true
         omega_offset, twotheta_offset = compare_plot_to_expected_angles(p, maxcounts, calc_2theta, calc_omega, show_plot = false, return_offsets = true)
-        p = plot_gonio_map(ascifile, cmap=cmap, offset_omega = omega_offset, offset_2theta = twotheta_offset)
+        p = plot_gonio_map(asciifile, cmap=cmap, offset_omega = omega_offset, offset_2theta = twotheta_offset)
         add_hline!(p[1],calc_2theta)
         add_vline!(p[1],calc_omega)
         return p[1], omega_offset, twotheta_offset
